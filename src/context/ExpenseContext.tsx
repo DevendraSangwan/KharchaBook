@@ -305,9 +305,11 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const clearAllData = useCallback(async () => {
     setExpenses([]);
     setUdhaarList([]);
+    setHasLoadedDemo(false);
     await Promise.all([
       AsyncStorage.removeItem(EXPENSES_KEY),
       AsyncStorage.removeItem(UDHAAR_KEY),
+      AsyncStorage.removeItem(DEMO_SEEDED_KEY), // reset so demo can re-seed on next empty state
     ]);
   }, []);
 

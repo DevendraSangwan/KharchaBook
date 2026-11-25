@@ -37,7 +37,6 @@ export const TRANSLATIONS = {
 
     // Home
     hiUser: 'Hi',
-    newBtn: 'New',
     thisMonthSpent: 'THIS MONTH SPENT',
     monthSpentLabel: 'MONTH SPENT',
     safeDailyLimit: 'SAFE DAILY LIMIT',
@@ -50,7 +49,7 @@ export const TRANSLATIONS = {
     totalEntries: 'Month Entries',
     searchPlaceholder: 'Search expense, note or category...',
     noMatching: 'No matching expenses found',
-    noMatchingSub: 'Tap "+ New" to add an expense or reset filters.',
+    noMatchingSub: 'Tap "+" below to add an expense or reset filters.',
     deleteTitle: 'Delete Expense?',
     today: 'Today',
     yesterday: 'Yesterday',
@@ -184,7 +183,6 @@ export const TRANSLATIONS = {
 
     // Home
     hiUser: 'नमस्ते',
-    newBtn: 'नया',
     thisMonthSpent: 'इस महीने का खर्च',
     monthSpentLabel: 'महीने का खर्च',
     safeDailyLimit: 'दैनिक सुरक्षित सीमा',
@@ -197,7 +195,7 @@ export const TRANSLATIONS = {
     totalEntries: 'मासिक एंट्री',
     searchPlaceholder: 'खर्चा, नोट या कैटेगरी खोजें...',
     noMatching: 'कोई खर्चा नहीं मिला',
-    noMatchingSub: 'ऊपर "+ नया" दबाकर खर्चा जोड़ें या फ़िल्टर हटाएँ।',
+    noMatchingSub: 'नीचे "+" दबाकर खर्चा जोड़ें या फ़िल्टर हटाएँ।',
     deleteTitle: 'खर्चा डिलीट करें?',
     today: 'आज',
     yesterday: 'कल',

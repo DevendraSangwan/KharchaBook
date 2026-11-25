@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { ProfileHeaderButton } from '../../src/components/ProfileHeaderButton';
 import { COLORS } from '../../src/constants/theme';
 import { useExpenses } from '../../src/context/ExpenseContext';
 import { UdhaarEntry } from '../../src/types/expense';
@@ -104,8 +105,13 @@ export default function UdhaarScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.headerTitle}>{t.udhaarTitle}</Text>
-      <Text style={styles.headerSub}>{t.udhaarSub}</Text>
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>{t.udhaarTitle}</Text>
+          <Text style={styles.headerSub}>{t.udhaarSub}</Text>
+        </View>
+        <ProfileHeaderButton />
+      </View>
 
       <View style={styles.netBanner}>
         <View>
@@ -317,8 +323,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
     paddingHorizontal: 18,
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginTop: 8 },
-  headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2, marginBottom: 12 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text },
+  headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
   netBanner: {
     flexDirection: 'row',
     justifyContent: 'space-between',

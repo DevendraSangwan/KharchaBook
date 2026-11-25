@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MonthSwitcher } from '../../src/components/MonthSwitcher';
+import { ProfileHeaderButton } from '../../src/components/ProfileHeaderButton';
 import { COLORS } from '../../src/constants/theme';
 import { useExpenses } from '../../src/context/ExpenseContext';
 import {
@@ -130,9 +131,9 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <View style={{ gap: 6 }}>
+        <View style={{ gap: 6, flex: 1 }}>
           <Text style={styles.appTitle}>
-            {profile.avatar} {t.hiUser}, {profile.name || t.friendFallback}
+            {t.hiUser}, {profile.name || t.friendFallback}
           </Text>
           <MonthSwitcher
             year={selectedYear}
@@ -144,14 +145,7 @@ export default function HomeScreen() {
             }}
           />
         </View>
-        <TouchableOpacity
-          style={styles.quickAddBtn}
-          onPress={() => router.push('/modal')}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="add" size={20} color={COLORS.primaryText} />
-          <Text style={styles.quickAddText}>{t.newBtn}</Text>
-        </TouchableOpacity>
+        <ProfileHeaderButton />
       </View>
 
       <View style={styles.summaryCard}>
@@ -366,18 +360,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 12,
+    gap: 12,
   },
   appTitle: { fontSize: 21, fontWeight: '800', color: COLORS.text, letterSpacing: -0.4 },
-  quickAddBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 4,
-  },
-  quickAddText: { color: COLORS.primaryText, fontWeight: '700', fontSize: 14 },
   summaryCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 20,

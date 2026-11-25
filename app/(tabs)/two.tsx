@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MonthSwitcher } from '../../src/components/MonthSwitcher';
+import { ProfileHeaderButton } from '../../src/components/ProfileHeaderButton';
 import {
   CategoryDonutChart,
   DayBarItem,
@@ -157,10 +158,11 @@ export default function AnalyticsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>{t.analyticsTitle}</Text>
           <Text style={styles.headerSub}>{t.analyticsSub}</Text>
         </View>
+        <ProfileHeaderButton />
       </View>
 
       <View style={{ marginBottom: 14 }}>
@@ -297,9 +299,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
     paddingHorizontal: 18,
   },
-  headerRow: { marginTop: 8 },
+  headerRow: {
+    marginTop: 8,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text },
-  headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2, marginBottom: 10 },
+  headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
   kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   kpiCard: {
     flex: 1,

@@ -11,13 +11,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { AVATARS, BUDGET_PRESETS, COLORS } from '../../src/constants/theme';
-import { useExpenses } from '../../src/context/ExpenseContext';
-import { CATEGORIES } from '../../src/types/expense';
-import { ENABLE_SAMPLE_DATA } from '../../src/utils/demoSeed';
-import { showAlert, showConfirm, triggerHaptic } from '../../src/utils/feedback';
-import { formatINR } from '../../src/utils/format';
-import { AppLanguage } from '../../src/utils/i18n';
+import { useRouter } from 'expo-router';
+import { AVATARS, BUDGET_PRESETS, COLORS } from '../src/constants/theme';
+import { useExpenses } from '../src/context/ExpenseContext';
+import { CATEGORIES } from '../src/types/expense';
+import { ENABLE_SAMPLE_DATA } from '../src/utils/demoSeed';
+import { showAlert, showConfirm, triggerHaptic } from '../src/utils/feedback';
+import { formatINR } from '../src/utils/format';
+import { AppLanguage } from '../src/utils/i18n';
 
 function sanitizeCsvField(val: string): string {
   const cleaned = val.replace(/"/g, '""');
@@ -45,6 +46,7 @@ async function shareOrDownloadText(filename: string, title: string, content: str
 }
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const {
     monthlyBudget,
     currentMonthTotal,
@@ -212,9 +214,21 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.headerTitle}>{t.profileTitle}</Text>
-      <Text style={styles.headerSub}>{t.profileSub}</Text>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.topNav}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          activeOpacity={0.8}
+          hitSlop={8}
+        >
+          <Ionicons name="arrow-back" size={20} color={COLORS.text} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>{t.profileTitle}</Text>
+          <Text style={styles.headerSub}>{t.profileSub}</Text>
+        </View>
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
         {/* Top User Identity Banner */}
@@ -401,8 +415,25 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
     paddingHorizontal: 18,
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginTop: 8 },
-  headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2, marginBottom: 16 },
+  topNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
+  headerSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
   profileBanner: {
     flexDirection: 'row',
     alignItems: 'center',
