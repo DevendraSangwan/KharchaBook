@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS } from '../../src/constants/theme';
 import { useExpenses } from '../../src/context/ExpenseContext';
 
 export default function TabLayout() {
@@ -10,15 +11,18 @@ export default function TabLayout() {
   const bottomPadding = Math.max(insets.bottom, 10);
   const tabBarHeight = 60 + bottomPadding;
 
+  const iconColor = (color: unknown, focused: boolean) =>
+    typeof color === 'string' ? color : focused ? COLORS.primary : COLORS.textMuted;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#10B981',
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textMuted,
         tabBarStyle: {
-          backgroundColor: '#0F172A',
-          borderTopColor: '#1E293B',
+          backgroundColor: COLORS.surface,
+          borderTopColor: COLORS.border,
           height: tabBarHeight,
           paddingBottom: bottomPadding,
           paddingTop: 8,
@@ -31,7 +35,11 @@ export default function TabLayout() {
         options={{
           title: t.tabHome,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={22} color={color} />
+            <Ionicons
+              name={focused ? 'wallet' : 'wallet-outline'}
+              size={22}
+              color={iconColor(color, focused)}
+            />
           ),
         }}
       />
@@ -40,7 +48,11 @@ export default function TabLayout() {
         options={{
           title: t.tabUdhaar,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={color} />
+            <Ionicons
+              name={focused ? 'people' : 'people-outline'}
+              size={22}
+              color={iconColor(color, focused)}
+            />
           ),
         }}
       />
@@ -49,7 +61,11 @@ export default function TabLayout() {
         options={{
           title: t.tabAnalytics,
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'pie-chart' : 'pie-chart-outline'} size={22} color={color} />
+            <Ionicons
+              name={focused ? 'pie-chart' : 'pie-chart-outline'}
+              size={22}
+              color={iconColor(color, focused)}
+            />
           ),
         }}
       />
@@ -61,7 +77,7 @@ export default function TabLayout() {
             <Ionicons
               name={focused ? 'person-circle' : 'person-circle-outline'}
               size={24}
-              color={color}
+              color={iconColor(color, focused)}
             />
           ),
         }}

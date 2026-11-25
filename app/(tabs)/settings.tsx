@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Platform,
-  SafeAreaView,
   ScrollView,
   Share,
   StyleSheet,
@@ -11,23 +9,62 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { AVATARS, BUDGET_PRESETS, COLORS } from '../../src/constants/theme';
 import { useExpenses } from '../../src/context/ExpenseContext';
 import { CATEGORIES } from '../../src/types/expense';
+import { ENABLE_SAMPLE_DATA } from '../../src/utils/demoSeed';
+import { showAlert, showConfirm, triggerHaptic } from '../../src/utils/feedback';
 import { formatINR } from '../../src/utils/format';
 import { AppLanguage } from '../../src/utils/i18n';
 
-const BUDGET_PRESETS = [3000, 5000, 10000, 20000];
-const AVATARS = ['👩🏻‍💻', '🧑🏻‍🎓', '💼', '🚀', '🌟', '🦁'];
+function sanitizeCsvField(val: string): string {
+  const cleaned = val.replace(/"/g, '""');
+  return `"${cleaned}"`;
+}
+
+async function shareOrDownloadText(filename: string, title: string, content: string, mimeType: string) {
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  await Share.share({
+    title,
+    message: content,
+  });
+}
 
 export default function ProfileScreen() {
-  const { monthlyBudget, currentMonthTotal, profile, t, saveProfile, expenses, clearAllData } =
-    useExpenses();
+  const {
+    monthlyBudget,
+    currentMonthTotal,
+    profile,
+    t,
+    saveProfile,
+    expenses,
+    udhaarList,
+    hasLoadedDemo,
+    loadDemoData,
+    importBackup,
+    clearAllData,
+  } = useExpenses();
+
   const [nameInput, setNameInput] = useState(profile.name || '');
   const [selectedAvatar, setSelectedAvatar] = useState(profile.avatar || '👩🏻‍💻');
   const [selectedLang, setSelectedLang] = useState<AppLanguage>(profile.language || 'en');
   const [budgetInput, setBudgetInput] = useState(String(monthlyBudget));
+  const [backupInput, setBackupInput] = useState('');
+  const [showRestoreBox, setShowRestoreBox] = useState(false);
 
   useEffect(() => {
     setNameInput(profile.name);
@@ -39,19 +76,17 @@ export default function ProfileScreen() {
   const handleSaveSettings = async () => {
     const val = parseFloat(budgetInput);
     if (!val || val <= 0) {
-      Alert.alert('Invalid Budget', 'Please enter a valid monthly budget amount.');
+      showAlert(t.invalidAmountTitle, t.invalidBudgetMsg);
       return;
     }
     await saveProfile(nameInput, selectedAvatar, val, selectedLang);
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-    Alert.alert('Saved!', 'Profile, language & budget updated.');
+    triggerHaptic('success');
+    showAlert(t.savedTitle, t.profileSavedMsg);
   };
 
-  const handleExportCSV = async () => {
+  const handleExportExpensesCSV = async () => {
     if (expenses.length === 0) {
-      Alert.alert('No Data', 'Add at least one expense before exporting.');
+      showAlert(t.errorTitle, t.noExportDataMsg);
       return;
     }
 
@@ -60,37 +95,124 @@ export default function ProfileScreen() {
       .map((e) => {
         const dateStr = new Date(e.date).toLocaleDateString('en-IN');
         const catName = CATEGORIES[e.category]?.label || e.category;
-        const cleanNote = (e.note || '-').replace(/,/g, ' ');
-        return `${dateStr},${catName},${cleanNote},${e.paymentMode},${e.amount}`;
+        return [
+          sanitizeCsvField(dateStr),
+          sanitizeCsvField(catName),
+          sanitizeCsvField(e.note || '-'),
+          sanitizeCsvField(e.paymentMode),
+          e.amount,
+        ].join(',');
       })
       .join('\n');
 
     try {
-      await Share.share({
-        title: 'KharchaBook Expense Report',
-        message: header + rows,
-      });
+      await shareOrDownloadText(
+        'kharchabook-expenses.csv',
+        'KharchaBook Expense Report',
+        header + rows,
+        'text/csv;charset=utf-8;'
+      );
     } catch (error) {
       console.error('Export failed:', error);
     }
   };
 
-  const handleReset = () => {
-    Alert.alert('Reset All Data?', 'This will permanently delete all saved entries.', [
-      { text: t.cancel, style: 'cancel' },
+  const handleExportUdhaarCSV = async () => {
+    if (udhaarList.length === 0) {
+      showAlert(t.errorTitle, t.noUdhaarExportMsg);
+      return;
+    }
+
+    const header = 'Date,Person,Type,Note,Amount (INR),Settled\n';
+    const rows = udhaarList
+      .map((u) => {
+        const dateStr = new Date(u.date).toLocaleDateString('en-IN');
+        return [
+          sanitizeCsvField(dateStr),
+          sanitizeCsvField(u.person),
+          sanitizeCsvField(u.type),
+          sanitizeCsvField(u.note || '-'),
+          u.amount,
+          u.settled ? 'Yes' : 'No',
+        ].join(',');
+      })
+      .join('\n');
+
+    try {
+      await shareOrDownloadText(
+        'kharchabook-udhaar.csv',
+        'KharchaBook Udhaar Report',
+        header + rows,
+        'text/csv;charset=utf-8;'
+      );
+    } catch (error) {
+      console.error('Udhaar export failed:', error);
+    }
+  };
+
+  const handleExportJSON = async () => {
+    const payload = JSON.stringify(
       {
-        text: t.delete,
-        style: 'destructive',
-        onPress: async () => {
-          await clearAllData();
-          Alert.alert('Cleared', 'All data has been reset.');
-        },
+        app: 'KharchaBook',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        monthlyBudget,
+        expenses,
+        udhaarList,
       },
-    ]);
+      null,
+      2
+    );
+
+    try {
+      await shareOrDownloadText(
+        'kharchabook-backup.json',
+        'KharchaBook Full Backup',
+        payload,
+        'application/json'
+      );
+    } catch (error) {
+      console.error('JSON backup failed:', error);
+    }
+  };
+
+  const handleRestoreJSON = async () => {
+    const ok = await importBackup(backupInput.trim());
+    if (!ok) {
+      showAlert(t.errorTitle, t.restoreErrorMsg);
+      return;
+    }
+    triggerHaptic('success');
+    setBackupInput('');
+    setShowRestoreBox(false);
+    showAlert(t.savedTitle, t.restoreSuccessMsg);
+  };
+
+  const handleLoadDemo = async () => {
+    const added = await loadDemoData();
+    if (!added) {
+      showAlert(t.demoTitle, t.demoAlreadyLoadedMsg);
+      return;
+    }
+    triggerHaptic('success');
+    showAlert(t.savedTitle, t.demoLoadedMsg);
+  };
+
+  const handleReset = () => {
+    showConfirm(
+      t.resetConfirmTitle,
+      t.resetConfirmMsg,
+      t.cancel,
+      t.delete,
+      async () => {
+        await clearAllData();
+        showAlert(t.savedTitle, t.resetDoneMsg);
+      }
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Text style={styles.headerTitle}>{t.profileTitle}</Text>
       <Text style={styles.headerSub}>{t.profileSub}</Text>
 
@@ -101,7 +223,7 @@ export default function ProfileScreen() {
             <Text style={styles.bigAvatarText}>{profile.avatar || '👩🏻‍💻'}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.bannerName}>{profile.name || 'KharchaBook User'}</Text>
+            <Text style={styles.bannerName}>{profile.name || t.userFallback}</Text>
             <Text style={styles.bannerMeta}>
               {t.budgetLabel} {formatINR(monthlyBudget)} • {formatINR(currentMonthTotal)}
             </Text>
@@ -112,7 +234,6 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t.editProfileCard}</Text>
 
-          {/* Language Toggle */}
           <Text style={styles.fieldLabel}>{t.chooseLang}</Text>
           <View style={styles.langRow}>
             <TouchableOpacity
@@ -141,7 +262,7 @@ export default function ProfileScreen() {
                 style={[styles.avatarBtn, selectedAvatar === item && styles.avatarBtnActive]}
                 onPress={() => setSelectedAvatar(item)}
               >
-                <Text style={{ fontSize: 20 }}>{item}</Text>
+                <Text style={{ fontSize: 18 }}>{item}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -151,8 +272,8 @@ export default function ProfileScreen() {
             style={[styles.input, { marginBottom: 14 }]}
             value={nameInput}
             onChangeText={setNameInput}
-            placeholder="Your Name"
-            placeholderTextColor="#64748B"
+            placeholder={t.namePlaceholder}
+            placeholderTextColor={COLORS.textSubtle}
           />
 
           <Text style={styles.fieldLabel}>{t.monthlyLimitLabel}</Text>
@@ -162,7 +283,7 @@ export default function ProfileScreen() {
             onChangeText={setBudgetInput}
             keyboardType="numeric"
             placeholder="10000"
-            placeholderTextColor="#64748B"
+            placeholderTextColor={COLORS.textSubtle}
           />
 
           <View style={styles.presetRow}>
@@ -178,27 +299,94 @@ export default function ProfileScreen() {
           </View>
 
           <TouchableOpacity style={styles.saveBtn} onPress={handleSaveSettings}>
-            <Ionicons name="checkmark-circle-outline" size={20} color="#0F172A" />
+            <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.primaryText} />
             <Text style={styles.saveBtnText}>{t.saveChanges}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Export Card */}
+        {/* Export & Backup Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>{t.exportTitle}</Text>
           <Text style={styles.cardDesc}>{t.exportDesc}</Text>
-          <TouchableOpacity style={styles.exportBtn} onPress={handleExportCSV}>
-            <Ionicons name="share-social-outline" size={20} color="#0F172A" />
-            <Text style={styles.exportBtnText}>{t.shareCsv}</Text>
-          </TouchableOpacity>
+          <View style={{ gap: 10 }}>
+            <TouchableOpacity style={styles.exportBtn} onPress={handleExportExpensesCSV}>
+              <Ionicons name="share-social-outline" size={19} color={COLORS.primaryText} />
+              <Text style={styles.exportBtnText}>{t.shareCsv}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.secondaryBtn} onPress={handleExportUdhaarCSV}>
+              <Ionicons name="people-outline" size={18} color={COLORS.info} />
+              <Text style={styles.secondaryBtnText}>{t.shareUdhaarCsv}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.secondaryBtn} onPress={handleExportJSON}>
+              <Ionicons name="cloud-download-outline" size={18} color={COLORS.primaryLight} />
+              <Text style={[styles.secondaryBtnText, { color: COLORS.primaryLight }]}>
+                {t.exportJsonBackup}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={() => setShowRestoreBox((prev) => !prev)}
+            >
+              <Ionicons name="cloud-upload-outline" size={18} color={COLORS.textSecondary} />
+              <Text style={[styles.secondaryBtnText, { color: COLORS.textSecondary }]}>
+                {t.importJsonBackup}
+              </Text>
+            </TouchableOpacity>
+
+            {showRestoreBox ? (
+              <View style={styles.restoreBox}>
+                <TextInput
+                  style={styles.restoreInput}
+                  value={backupInput}
+                  onChangeText={setBackupInput}
+                  placeholder={t.pasteBackupPlaceholder}
+                  placeholderTextColor={COLORS.textSubtle}
+                  multiline
+                />
+                <TouchableOpacity style={styles.saveBtn} onPress={handleRestoreJSON}>
+                  <Text style={styles.saveBtnText}>{t.restoreBtn}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
         </View>
 
+        {/* Sample Data (controlled by ENABLE_SAMPLE_DATA in src/utils/demoSeed.ts) */}
+        {ENABLE_SAMPLE_DATA ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{t.demoTitle}</Text>
+            <Text style={styles.cardDesc}>{t.demoDesc}</Text>
+            <TouchableOpacity
+              style={[styles.secondaryBtn, hasLoadedDemo && { opacity: 0.6 }]}
+              onPress={handleLoadDemo}
+              disabled={hasLoadedDemo}
+            >
+              <Ionicons
+                name={hasLoadedDemo ? 'checkmark-circle-outline' : 'sparkles-outline'}
+                size={18}
+                color={hasLoadedDemo ? COLORS.primaryLight : COLORS.warning}
+              />
+              <Text
+                style={[
+                  styles.secondaryBtnText,
+                  { color: hasLoadedDemo ? COLORS.primaryLight : COLORS.warning },
+                ]}
+              >
+                {hasLoadedDemo ? t.demoAlreadyLoadedBtn : t.loadDemoBtn}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Danger Zone */}
-        <View style={[styles.card, { borderColor: '#7F1D1D' }]}>
-          <Text style={[styles.cardTitle, { color: '#FCA5A5' }]}>{t.resetTitle}</Text>
+        <View style={[styles.card, { borderColor: COLORS.dangerBorder }]}>
+          <Text style={[styles.cardTitle, { color: COLORS.dangerText }]}>{t.resetTitle}</Text>
           <Text style={styles.cardDesc}>{t.resetDesc}</Text>
           <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
-            <Ionicons name="trash-outline" size={18} color="#FCA5A5" />
+            <Ionicons name="trash-outline" size={18} color={COLORS.dangerText} />
             <Text style={styles.resetBtnText}>{t.clearAll}</Text>
           </TouchableOpacity>
         </View>
@@ -210,20 +398,19 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: COLORS.bg,
     paddingHorizontal: 18,
-    paddingTop: Platform.OS === 'android' ? 36 : 12,
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#F8FAFC' },
-  headerSub: { fontSize: 13, color: '#94A3B8', marginTop: 2, marginBottom: 16 },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginTop: 8 },
+  headerSub: { fontSize: 13, color: COLORS.textMuted, marginTop: 2, marginBottom: 16 },
   profileBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: COLORS.surface,
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: COLORS.border,
     marginBottom: 16,
     gap: 14,
   },
@@ -231,101 +418,125 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#064E3B',
+    backgroundColor: COLORS.primaryDark,
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bigAvatarText: { fontSize: 28 },
-  bannerName: { color: '#F8FAFC', fontSize: 18, fontWeight: '800' },
-  bannerMeta: { color: '#6EE7B7', fontSize: 12, fontWeight: '600', marginTop: 3 },
+  bannerName: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
+  bannerMeta: { color: COLORS.primaryLight, fontSize: 12, fontWeight: '600', marginTop: 3 },
   card: {
-    backgroundColor: '#0F172A',
+    backgroundColor: COLORS.surface,
     borderRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: COLORS.border,
     marginBottom: 16,
   },
-  cardTitle: { color: '#F8FAFC', fontSize: 16, fontWeight: '700', marginBottom: 12 },
-  cardDesc: { color: '#94A3B8', fontSize: 13, marginBottom: 14, lineHeight: 18 },
+  cardTitle: { color: COLORS.text, fontSize: 16, fontWeight: '700', marginBottom: 10 },
+  cardDesc: { color: COLORS.textMuted, fontSize: 13, marginBottom: 14, lineHeight: 18 },
   langRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   langBtn: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: COLORS.bg,
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#1E293B',
+    borderColor: COLORS.border,
   },
-  langBtnActive: { backgroundColor: '#10B981', borderColor: '#10B981' },
-  langText: { color: '#94A3B8', fontSize: 13, fontWeight: '700' },
-  langTextActive: { color: '#0F172A' },
-  avatarRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  langBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  langText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '700' },
+  langTextActive: { color: COLORS.primaryText },
+  avatarRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   avatarBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#020617',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.bg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#1E293B',
+    borderColor: COLORS.border,
   },
-  avatarBtnActive: { borderColor: '#10B981', backgroundColor: '#064E3B' },
-  fieldLabel: { color: '#94A3B8', fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  avatarBtnActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryDark },
+  fieldLabel: { color: COLORS.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 6 },
   input: {
-    backgroundColor: '#020617',
-    color: '#F8FAFC',
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
     fontWeight: '700',
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: COLORS.border,
   },
   presetRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   presetChip: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: COLORS.bg,
     paddingVertical: 8,
     borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: COLORS.border,
   },
-  presetText: { color: '#6EE7B7', fontSize: 12, fontWeight: '700' },
+  presetText: { color: COLORS.primaryLight, fontSize: 12, fontWeight: '700' },
   saveBtn: {
     flexDirection: 'row',
-    backgroundColor: '#10B981',
+    backgroundColor: COLORS.primary,
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
-  saveBtnText: { color: '#0F172A', fontWeight: '800', fontSize: 14 },
+  saveBtnText: { color: COLORS.primaryText, fontWeight: '800', fontSize: 14 },
   exportBtn: {
     flexDirection: 'row',
-    backgroundColor: '#38BDF8',
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  exportBtnText: { color: '#0F172A', fontWeight: '800', fontSize: 14 },
-  resetBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#450A0A',
+    backgroundColor: COLORS.info,
     paddingVertical: 13,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  resetBtnText: { color: '#FCA5A5', fontWeight: '700', fontSize: 14 },
+  exportBtnText: { color: COLORS.primaryText, fontWeight: '800', fontSize: 14 },
+  secondaryBtn: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.bg,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  secondaryBtnText: { color: COLORS.info, fontWeight: '700', fontSize: 13 },
+  restoreBox: { gap: 10, marginTop: 4 },
+  restoreInput: {
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 90,
+    fontSize: 12,
+    textAlignVertical: 'top',
+  },
+  resetBtn: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.dangerBg,
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  resetBtnText: { color: COLORS.dangerText, fontWeight: '700', fontSize: 14 },
 });

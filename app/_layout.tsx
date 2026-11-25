@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ExpenseProvider, useExpenses } from '../src/context/ExpenseContext';
 
 function RootNavigator() {
@@ -36,8 +37,10 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <ExpenseProvider>
-      <RootNavigator />
-    </ExpenseProvider>
+    <SafeAreaProvider>
+      <ExpenseProvider>
+        <RootNavigator />
+      </ExpenseProvider>
+    </SafeAreaProvider>
   );
 }
